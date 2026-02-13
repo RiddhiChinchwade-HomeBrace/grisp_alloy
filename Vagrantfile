@@ -70,6 +70,11 @@ def ensure_vagrant_cache_disk
         unless system("qemu-img convert -f raw -O vmdk '#{raw_path}' '#{cache_path}'")
             raise "Failed to convert raw cache disk image to VMDK"
         end
+        # qemu-img may produce VMDKs with zero UUID on macOS; VirtualBox rejects
+        # those at boot with registry/medium UUID mismatch.
+        if system("command -v VBoxManage > /dev/null 2>&1")
+            system("VBoxManage internalcommands sethduuid '#{cache_path}' > /dev/null 2>&1")
+        end
         File.delete(raw_path) if File.exist?(raw_path)
     else
         raise "Unsupported host platform: #{host_platform}"
@@ -150,8 +155,8 @@ Vagrant.configure('2') do |config|
             register_vmdk_for_virtualbox(CACHE_DISK_PATH)
         end
 
-        # Attach the cache disk (SATA Port 1)
-        v.customize ['storagectl', :id, '--name', 'SATA Controller', '--add', 'sata']
+        # Base boxes already ship with a SATA controller; re-adding it fails.
+        # Attach the cache disk on the existing controller.
         v.customize ['storageattach', :id, '--storagectl', 'SATA Controller',
                      '--port', 1, '--device', 0, '--type', 'hdd',
                      '--medium', CACHE_DISK_PATH]
@@ -283,7 +288,12 @@ Vagrant.configure('2') do |config|
     end
 
     config.vm.provider :virtualbox do |v, override|
-        override.vm.synced_folder "artefacts/", "/home/vagrant/artefacts", create: true, type: "nfs", nfs_version: 3, nfs_udp: false, mount_options: ['vers=3,tcp']
+        if ENV['VAGRANT_DISABLE_NFS'] == '1'
+            # Use VirtualBox shared folders when NFS is explicitly disabled.
+            override.vm.synced_folder "artefacts/", "/home/vagrant/artefacts", create: true
+        else
+            override.vm.synced_folder "artefacts/", "/home/vagrant/artefacts", create: true, type: "nfs", nfs_version: 3, nfs_udp: false, mount_options: ['vers=3,tcp']
+        end
     end
 
     config.ssh.forward_agent = true
