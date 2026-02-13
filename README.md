@@ -62,6 +62,52 @@ brew install vagrant qemu
 
 The scripts start the VM automatically when needed. Use `-P` to reprovision.
 
+### Vagrant Variables (Useful Overrides)
+
+You can control `Vagrantfile` behavior with environment variables:
+
+- `VAGRANT_DEFAULT_PROVIDER`: force provider (for example `virtualbox`)
+- `VAGRANT_DISABLE_NFS=1`: disable NFS path for VirtualBox and use default shared folders
+- `VM_MEMORY`: VM RAM in MB (default `16384`)
+- `VM_CORES`: VM CPU cores (default `8`)
+- `VM_PRIMARY_DISK_SIZE`: primary VM disk size (for example `96GB`)
+- `VM_CACHE_DISK_SIZE`: cache disk size in MB (default `10240`)
+
+Examples:
+
+```sh
+VAGRANT_DEFAULT_PROVIDER=virtualbox VAGRANT_DISABLE_NFS=1 ./build-toolchain.sh grisp2
+VM_MEMORY=8192 VM_CORES=4 ./build-sdk.sh grisp2
+VM_PRIMARY_DISK_SIZE=96GB VM_CACHE_DISK_SIZE=20480 ./build-toolchain.sh -P grisp2
+```
+
+### Optional: Enable NFS (VirtualBox)
+
+NFS can improve shared-folder performance, but VirtualBox needs a host-only network.
+
+Requirements:
+
+- A VirtualBox host-only adapter exists (with DHCP or static IP).
+- `VAGRANT_DISABLE_NFS` is not set to `1`.
+
+Run with NFS:
+
+```sh
+VAGRANT_DEFAULT_PROVIDER=virtualbox ./build-toolchain.sh -P grisp2
+```
+
+If you get:
+
+```text
+NFS requires a host-only network to be created.
+```
+
+create a host-only adapter in VirtualBox and reprovision (`-P`), or use:
+
+```sh
+VAGRANT_DEFAULT_PROVIDER=virtualbox VAGRANT_DISABLE_NFS=1 ./build-toolchain.sh grisp2
+```
+
 ### First Successful Build
 
 ```sh
