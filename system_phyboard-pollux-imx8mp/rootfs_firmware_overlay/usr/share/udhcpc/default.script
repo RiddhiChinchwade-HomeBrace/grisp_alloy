@@ -1,0 +1,41 @@
+#!/bin/sh
+# udhcpc default script for phyBOARD-Pollux
+# Called by udhcpc when lease state changes
+
+[ -z "$1" ] && echo "Error: should be called from udhcpc" && exit 1
+
+RESOLV_CONF="/etc/resolv.conf"
+
+case "$1" in
+  deconfig)
+    ip addr flush dev "$interface"
+    ip link set "$interface" up
+    ;;
+
+  bound|renew)
+    # Set IP address
+    ip addr add "$ip/$mask" dev "$interface" broadcast "${broadcast:-+}"
+
+    # Set default gateway
+    if [ -n "$router" ]; then
+      ip route del default 2>/dev/null
+      for r in $router; do
+        ip route add default via "$r" dev "$interface"
+      done
+    fi
+
+    # Write DNS config
+    if [ -n "$dns" ]; then
+      echo "" > "$RESOLV_CONF"
+      [ -n "$domain" ] && echo "search $domain" >> "$RESOLV_CONF"
+      for d in $dns; do
+        echo "nameserver $d" >> "$RESOLV_CONF"
+      done
+    fi
+    ;;
+
+  leasefail|nak)
+    ;;
+esac
+
+exit 0
